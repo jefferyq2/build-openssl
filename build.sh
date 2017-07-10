@@ -12,16 +12,16 @@ HB_BOOTSTRAP="t:*toonetown/android b:android-ndk
 
 # Overridable build locations
 : ${DEFAULT_OPENSSL_DIST:="${BUILD_DIR}/openssl"}
-: ${DEFAULT_CURL_DIST:="${BUILD_DIR}/curl"}
 : ${OBJDIR_ROOT:="${BUILD_DIR}/target"}
 : ${CONFIGS_DIR:="${BUILD_DIR}/configs"}
 : ${MAKE_BUILD_PARALLEL:=$(sysctl -n hw.ncpu)}
 
+# Options for OpenSSL
+: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared enable-static-engine no-asm no-hw"}
+: ${OPENSSL_BUILD_OPTIONS:=""}
 
 # Include files which are platform-specific
-OPENSSL_PLATFORM_HEADERS="include/openssl/opensslconf.h"
-CURL_PLATFORM_HEADERS="include/curl/curlbuild.h"
-ALL_PLATFORM_HEADERS="${OPENSSL_PLATFORM_HEADERS} ${CURL_PLATFORM_HEADERS}"
+PLATFORM_SPECIFIC_HEADERS="include/openssl/opensslconf.h"
 
 list_arch() {
     if [ -z "${1}" ]; then
@@ -46,13 +46,11 @@ print_usage() {
         shift 1
         if [ $# -eq 0 ]; then echo "" >&2; fi
     done
-    echo "Usage: ${0} [/path/to/openssl-dist] [/path/to/curl-dist] "                        >&2
+    echo "Usage: ${0} [/path/to/openssl-dist] "                                             >&2
     echo "            <plat.arch|plat|'combine-headers'|'bootstrap'|'clean'>"               >&2
     echo ""                                                                                 >&2
     echo "\"/path/to/openssl-dist\" is optional and defaults to:"                           >&2
     echo "    \"${DEFAULT_OPENSSL_DIST}\""                                                  >&2
-    echo "\"/path/to/curl-dist\" is optional and defaults to:"                              >&2
-    echo "    \"${DEFAULT_CURL_DIST}\""                                                     >&2
     echo ""                                                                                 >&2
     echo "Possible plat.arch combinations are:"                                             >&2
     for p in $(list_plats); do
@@ -84,6 +82,10 @@ do_build_openssl() {
         echo "PLATFORM_DEFINITION is not set for ${TARGET}"
         return 1
     }
+    [ -n "${OPENSSL_CONFIGURE_NAME}" ] || {
+        echo "OPENSSL_CONFIGURE_NAME is not set for ${TARGET}"
+        return 1
+    }
 
     [ -d "${BUILD_ROOT}" -a -f "${BUILD_ROOT}/Configure" ] || {
         echo "Creating build directory for '${TARGET}'..."
@@ -94,7 +96,14 @@ do_build_openssl() {
     if [ "${BUILD_ROOT}/Makefile" -ot "${BUILD_ROOT}/Makefile.org" ]; then
         echo "Configuring OpenSSL build directory for '${TARGET}'..."
         cd "${BUILD_ROOT}" || return $?
-        ./Configure ${OPENSSL_CONFIGURE_NAME} no-shared no-asm no-hw --openssldir="${OUTPUT_ROOT}" || {
+        [ -n "${OPENSSL_PRECONFIGURE}" ] && {
+            [ -x "${OPENSSL_PRECONFIGURE}" ] || { echo "${OPENSSL_PRECONFIGURE} does not exist"; return 1; }
+            "${OPENSSL_PRECONFIGURE}" || return $?
+        }
+        ./Configure ${OPENSSL_CONFIGURE_NAME} \
+                    ${COMMON_OPENSSL_BUILD_OPTIONS} \
+                    ${OPENSSL_BUILD_OPTIONS} \
+                    --openssldir="${OUTPUT_ROOT}" || {
             rm -f "${BUILD_ROOT}/Makefile"
             return 1
         }
@@ -111,65 +120,7 @@ do_build_openssl() {
     
     # Update platform-specific headers
     if [ ${ret} -eq 0 ]; then
-        for h in ${OPENSSL_PLATFORM_HEADERS}; do
-            echo "Updating header '${h}' for ${TARGET}..."
-            echo "#if ${PLATFORM_DEFINITION}" > "${OUTPUT_ROOT}/${h}.tmp"
-            cat "${OUTPUT_ROOT}/${h}" >> "${OUTPUT_ROOT}/${h}.tmp"
-            echo "#endif" >> "${OUTPUT_ROOT}/${h}.tmp"
-            mv "${OUTPUT_ROOT}/${h}.tmp" "${OUTPUT_ROOT}/${h}" || return $?
-        done
-    fi
-    cd ->/dev/null
-    return ${ret}
-}
-
-do_build_curl() {
-    TARGET="${1}"
-    OUTPUT_ROOT="${2}"
-    BUILD_ROOT="${OUTPUT_ROOT}/build/curl"
-    
-    [ -n "${PLATFORM_DEFINITION}" ] || {
-        echo "PLATFORM_DEFINITION is not set for ${TARGET}"
-        return 1
-    }
-    
-    [ -d "${BUILD_ROOT}" -a -f "${BUILD_ROOT}/configure.ac" -a \
-                            -f "${BUILD_ROOT}/buildconf" -a \
-                            -f "${BUILD_ROOT}/configure" ] || {
-        echo "Creating cURL build directory for '${TARGET}'..."
-        mkdir -p "$(dirname "${BUILD_ROOT}")" || return $?
-        cp -r "${PATH_TO_CURL_DIST}" "${BUILD_ROOT}" || return $?
-        cd "${BUILD_ROOT}" || return $?
-        ./buildconf || {
-            rm -f "${BUILD_ROOT}/configure"
-            return 1
-        }
-        cd ->/dev/null
-    }
-
-    if [ ! -f "${BUILD_ROOT}/config.status" ]; then
-        echo "Configuring cURL build directory for '${TARGET}'..."
-        cd "${BUILD_ROOT}" || return $?
-        ./configure --prefix="${OUTPUT_ROOT}" --host="${HOST}" ${SSL_FLAG} ${THREAD_FLAG} \
-                    --enable-static --disable-shared \
-                    --enable-ipv6 --disable-ldap || {
-            rm -f "${BUILD_ROOT}/config.status"
-            return 1
-        }
-        cd ->/dev/null
-    fi
-    
-    cd "${BUILD_ROOT}"
-    echo "Building cURL architecture '${TARGET}'..."
-    
-    # Generate the project and build (and clean up empty cruft directories)
-    make -j ${MAKE_BUILD_PARALLEL} && make install-data install-exec
-    ret=$?
-    rmdir "${OUTPUT_ROOT}"/{bin,certs,misc,private,lib/engines,lib/pkgconfig} >/dev/null 2>&1
-
-    # Update platform-specific headers
-    if [ ${ret} -eq 0 ]; then
-        for h in ${CURL_PLATFORM_HEADERS}; do
+        for h in ${PLATFORM_SPECIFIC_HEADERS}; do
             echo "Updating header '${h}' for ${TARGET}..."
             echo "#if ${PLATFORM_DEFINITION}" > "${OUTPUT_ROOT}/${h}.tmp"
             cat "${OUTPUT_ROOT}/${h}" >> "${OUTPUT_ROOT}/${h}.tmp"
@@ -196,10 +147,7 @@ do_build() {
             source "${CONFIGS_DIR}/setup-${PLAT}.sh"    || return $?
         }
         source "${CONFIG_SETUP}" && source "${GEN_SCRIPT}" || return $?
-        if [ "${SSL_FLAG}" == "--with-ssl=\"${OUTPUT_ROOT}\"" ]; then
-            do_build_openssl ${TARGET} "${OBJDIR_ROOT}/objdir-${TARGET}" || return $?
-        fi
-        do_build_curl ${TARGET} "${OBJDIR_ROOT}/objdir-${TARGET}"
+        do_build_openssl ${TARGET} "${OBJDIR_ROOT}/objdir-${TARGET}" || return $?
         
         return $?
     elif [ -n "${TARGET}" -a -n "$(list_arch ${TARGET})" ]; then
@@ -226,7 +174,7 @@ do_build() {
         mkdir -p "${COMBINED_ROOT}" || return $?
         cp -r ${COMBINED_ROOT}.*/include ${COMBINED_ROOT} || return $?
         
-        for h in ${ALL_PLATFORM_HEADERS}; do
+        for h in ${PLATFORM_SPECIFIC_HEADERS}; do
             echo "Combining header '${h}'..."
             if [ -f "${COMBINED_ROOT}/${h}" ]; then
                 rm ${COMBINED_ROOT}/${h} || return $?
@@ -261,7 +209,7 @@ do_build() {
                 return 1
             fi
         done
-        for h in ${OPENSSL_PLATFORM_HEADERS} ${CURL_PLATFORM_HEADERS}; do
+        for h in ${PLATFORM_SPECIFIC_HEADERS}; do
             echo "Combining header '${h}'..."
             if [ -f "${COMBINED_ROOT}/${h}" ]; then
                 rm ${COMBINED_ROOT}/${h} || return $?
@@ -306,22 +254,6 @@ fi
     print_usage "Invalid OpenSSL directory:" "    \"${PATH_TO_OPENSSL_DIST}\""
     exit $?
 }
-
-# Calculate the path to the curl-dist repository
-if [ -d "${1}" ]; then
-    cd "${1}"
-    PATH_TO_CURL_DIST="$(pwd)"
-    cd ->/dev/null
-    shift 1
-else
-    PATH_TO_CURL_DIST="${DEFAULT_CURL_DIST}"
-fi
-
-[ -d "${PATH_TO_CURL_DIST}" -a -f "${PATH_TO_CURL_DIST}/configure.ac" -a -f "${PATH_TO_CURL_DIST}/buildconf" ] || {
-    print_usage "Invalid cURL directory:" "    \"${PATH_TO_CURL_DIST}\""
-    exit $?
-}
-
 
 # Call bootstrap if that's what we specified
 if [ "${1}" == "bootstrap" ]; then
