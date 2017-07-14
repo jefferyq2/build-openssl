@@ -86,15 +86,13 @@ do_build_openssl() {
         echo "OPENSSL_CONFIGURE_NAME is not set for ${TARGET}"
         return 1
     }
-    [ -n "${COMPILER_NAME}" ] || {
-        echo "COMPILER_NAME is not set for ${TARGET}"
-        return 1
-    }
 
     [ -d "${BUILD_ROOT}" -a -f "${BUILD_ROOT}/Configure" ] || {
         echo "Creating build directory for '${TARGET}'..."
         mkdir -p "$(dirname "${BUILD_ROOT}")" || return $?
         cp -r "${PATH_TO_OPENSSL_DIST}" "${BUILD_ROOT}" || return $?
+        
+        # Patch the makefile to only build crypto and ssl
         perl -i -pe 's/^DIRS=.*$/DIRS= crypto ssl/g' "${BUILD_ROOT}/Makefile.org" || return $?
     }
     
@@ -118,39 +116,23 @@ do_build_openssl() {
     cd "${BUILD_ROOT}"
     echo "Building OpenSSL architecture '${TARGET}'..."
     
-    # Generate the project and build (and clean up empty cruft directories)
+    # Generate the project and build (and clean up cruft directories)
     make -j ${MAKE_BUILD_PARALLEL} build_apps && make install_sw
     ret=$?
     rm -rf "${OUTPUT_ROOT}"/{bin,certs,misc,private,lib/engines,lib/pkgconfig,openssl.cnf} >/dev/null 2>&1
     
     # Update platform-specific headers
     if [ ${ret} -eq 0 ]; then
+        _INC_OUT="${OUTPUT_ROOT}/include"
         for h in ${PLATFORM_SPECIFIC_HEADERS}; do
             echo "Updating header '${h}' for ${TARGET}..."
-            echo "#if ${PLATFORM_DEFINITION}" > "${OUTPUT_ROOT}/include/${h}.tmp"
-            cat "${OUTPUT_ROOT}/include/${h}" >> "${OUTPUT_ROOT}/include/${h}.tmp"
-            echo "#endif" >> "${OUTPUT_ROOT}/include/${h}.tmp"
-            mv "${OUTPUT_ROOT}/include/${h}.tmp" "${OUTPUT_ROOT}/include/${h}" || { ret=$?; break; }
+            echo "#if ${PLATFORM_DEFINITION}" > "${_INC_OUT}/${h}.tmp"
+            cat "${_INC_OUT}/${h}" >> "${_INC_OUT}/${h}.tmp"
+            echo "#endif" >> "${_INC_OUT}/${h}.tmp"
+            mv "${_INC_OUT}/${h}.tmp" "${_INC_OUT}/${h}" || { ret=$?; break; }
         done
     fi
 
-    # Tweak the headers to match "versioned" layout
-    if [ ${ret} -eq 0 ]; then
-        rm -rf "${OUTPUT_ROOT}/include/openssl-${LIB_VERSION}"
-        mkdir -p "${OUTPUT_ROOT}/include/openssl-${LIB_VERSION}"
-        mv -v "${OUTPUT_ROOT}/include/openssl" "${OUTPUT_ROOT}/include/openssl-${LIB_VERSION}" || ret=$?
-    fi
-    
-    # Tweak the libs to match "versioned" layout
-    if [ ${ret} -eq 0 ]; then
-        SUFFIX="${COMPILER_NAME}-mt-${LIB_VERSION}"
-        for l in $(find "${OUTPUT_ROOT}/lib" -type f -not -name "*-${SUFFIX}.a" -exec basename {} \; | sort -u); do
-            mv -vf "${OUTPUT_ROOT}/lib/${l}" "${OUTPUT_ROOT}/lib/$(echo "${l}" | sed -e "s/\.a/-${SUFFIX}.a/g")" || {
-                ret=$?; break
-            }
-        done
-    fi
-    
     cd ->/dev/null
     return ${ret}
 }
@@ -196,14 +178,15 @@ do_build() {
         COMBINED_ROOT="${OBJDIR_ROOT}/objdir-${PLATFORM}"
         mkdir -p "${COMBINED_ROOT}" || return $?
         cp -r ${COMBINED_ROOT}.*/include ${COMBINED_ROOT} || return $?
+        _CMB_INC="${COMBINED_ROOT}/include"
         
         for h in ${PLATFORM_SPECIFIC_HEADERS}; do
             echo "Combining header '${h}'..."
-            if [ -f "${COMBINED_ROOT}/include/openssl-${LIB_VERSION}/${h}" ]; then
-                rm ${COMBINED_ROOT}/include/openssl-${LIB_VERSION}/${h} || return $?
+            if [ -f "${_CMB_INC}/${h}" ]; then
+                rm ${_CMB_INC}/${h} || return $?
                 for a in ${COMBINED_ARCHS}; do
-                    cat "${OBJDIR_ROOT}/objdir-${a}/include/openssl-${LIB_VERSION}/${h}" \
-                        >> "${COMBINED_ROOT}/include/openssl-${LIB_VERSION}/${h}" || return $?
+                    _A_INC="${OBJDIR_ROOT}/objdir-${a}/include"
+                    cat "${_A_INC}/${h}" >> "${_CMB_INC}/${h}" || return $?
                 done
             fi
         done
@@ -221,13 +204,14 @@ do_build() {
             done
         fi
     elif [ "${TARGET}" == "combine-headers" ]; then
-        COMBINED_ROOT="${OBJDIR_ROOT}/include"
-        rm -rf "${COMBINED_ROOT}"
-        mkdir -p "${COMBINED_ROOT}" || return $?
+        COMBINED_HEADERS="${OBJDIR_ROOT}/include"
+        rm -rf "${COMBINED_HEADERS}"
+        mkdir -p "${COMBINED_HEADERS}" || return $?
         COMBINED_PLATS="$(list_plats)"
         for p in ${COMBINED_PLATS}; do
-            if [ -d "${OBJDIR_ROOT}/objdir-${p}/include/openssl-${LIB_VERSION}" ]; then
-                cp -r "${OBJDIR_ROOT}/objdir-${p}/include/openssl-${LIB_VERSION}" ${COMBINED_ROOT} || return $?
+            _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
+            if [ -d "${_P_INC}" ]; then
+                cp -r "${_P_INC}/"* ${COMBINED_HEADERS} || return $?
             else
                 echo "Platform ${p} has not been built"
                 return 1
@@ -235,12 +219,12 @@ do_build() {
         done
         for h in ${PLATFORM_SPECIFIC_HEADERS}; do
             echo "Combining header '${h}'..."
-            if [ -f "${COMBINED_ROOT}/openssl-${LIB_VERSION}/${h}" ]; then
-                rm ${COMBINED_ROOT}/openssl-${LIB_VERSION}/${h} || return $?
+            if [ -f "${COMBINED_HEADERS}/${h}" ]; then
+                rm "${COMBINED_HEADERS}/${h}" || return $?
                 for p in ${COMBINED_PLATS}; do
-                    if [ -f "${OBJDIR_ROOT}/objdir-${p}/include/openssl-${LIB_VERSION}/${h}" ]; then
-                        cat "${OBJDIR_ROOT}/objdir-${p}/include/openssl-${LIB_VERSION}/${h}" \
-                            >> "${COMBINED_ROOT}/openssl-${LIB_VERSION}/${h}" || return $?
+                    _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
+                    if [ -f "${_P_INC}/${h}" ]; then
+                        cat "${_P_INC}/${h}" >> "${COMBINED_HEADERS}/${h}" || return $?
                     fi
                 done
             fi
@@ -274,12 +258,6 @@ if [ -d "${1}" ]; then
 else
     PATH_TO_OPENSSL_DIST="${DEFAULT_OPENSSL_DIST}"
 fi
-
-# Calculate the version of our library
-LIB_VERSION="$(perl -ne 'print if s/^Version: +([0-9]+)\.([0-9]+)\.([0-9a-z]+) *$/\1_\2_\3/g' \
-                        "${PATH_TO_OPENSSL_DIST}/openssl.spec")"
-
-
 [ -d "${PATH_TO_OPENSSL_DIST}" -a -f "${PATH_TO_OPENSSL_DIST}/Configure" ] || {
     print_usage "Invalid OpenSSL directory:" "    \"${PATH_TO_OPENSSL_DIST}\""
     exit $?

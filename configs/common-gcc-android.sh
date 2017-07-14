@@ -23,5 +23,3 @@ if [ "${ANDROID_BUILD_PIE}" == "true" ]; then
     export CPPFLAGS="${CPPFLAGS} -fPIE"
     export LDFLAGS="${LDFLAGS} -fPIE -pie"
 fi
-
-COMPILER_NAME="gcc$("${CC}" -dumpversion | cut -d'.' -f1-2 | sed -e 's/\.//g')"
