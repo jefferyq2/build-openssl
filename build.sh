@@ -46,8 +46,7 @@ print_usage() {
         shift 1
         if [ $# -eq 0 ]; then echo "" >&2; fi
     done
-    echo "Usage: ${0} [/path/to/openssl-dist] "                                             >&2
-    echo "            <plat.arch|plat|'combine-headers'|'bootstrap'|'clean'>"               >&2
+    echo "Usage: ${0} [/path/to/openssl-dist] <plat.arch|plat|'bootstrap'|'clean'>"         >&2
     echo ""                                                                                 >&2
     echo "\"/path/to/openssl-dist\" is optional and defaults to:"                           >&2
     echo "    \"${DEFAULT_OPENSSL_DIST}\""                                                  >&2
@@ -65,6 +64,9 @@ print_usage() {
     echo "When specifying clean, you may optionally include a plat or plat.arch to clean,"  >&2
     echo "i.e. \"${0} clean macosx.i386\" to clean only the i386 architecture on Mac OS X"  >&2
     echo "or \"${0} clean ios\" to clean all ios builds."                                   >&2
+    echo ""                                                                                 >&2
+    echo "You can specify to package the release (after it's already been built) by"        >&2
+    echo "running \"${0} package /path/to/output"                                           >&2
     echo ""                                                                                 >&2
     return 1
 }
@@ -203,32 +205,6 @@ do_build() {
                 ${LIPO_PATH} -create $(find ${PLATFORM_LIBS} -type f -name "${l}") -output "${FAT_OUTPUT}/${l}"
             done
         fi
-    elif [ "${TARGET}" == "combine-headers" ]; then
-        COMBINED_HEADERS="${OBJDIR_ROOT}/include"
-        rm -rf "${COMBINED_HEADERS}"
-        mkdir -p "${COMBINED_HEADERS}" || return $?
-        COMBINED_PLATS="$(list_plats)"
-        for p in ${COMBINED_PLATS}; do
-            _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
-            if [ -d "${_P_INC}" ]; then
-                cp -r "${_P_INC}/"* ${COMBINED_HEADERS} || return $?
-            else
-                echo "Platform ${p} has not been built"
-                return 1
-            fi
-        done
-        for h in ${PLATFORM_SPECIFIC_HEADERS}; do
-            echo "Combining header '${h}'..."
-            if [ -f "${COMBINED_HEADERS}/${h}" ]; then
-                rm "${COMBINED_HEADERS}/${h}" || return $?
-                for p in ${COMBINED_PLATS}; do
-                    _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
-                    if [ -f "${_P_INC}/${h}" ]; then
-                        cat "${_P_INC}/${h}" >> "${COMBINED_HEADERS}/${h}" || return $?
-                    fi
-                done
-            fi
-        done    
     else
         print_usage "Missing/invalid target '${TARGET}'"
     fi
@@ -247,6 +223,53 @@ do_clean() {
     # Remove some leftovers (an empty OBJDIR_ROOT)
     rmdir "${OBJDIR_ROOT}" >/dev/null 2>&1
     return 0
+}
+
+do_combine_headers() {
+    # Combine the headers into a top-level location
+    COMBINED_HEADERS="${OBJDIR_ROOT}/include"
+    rm -rf "${COMBINED_HEADERS}"
+    mkdir -p "${COMBINED_HEADERS}" || return $?
+    COMBINED_PLATS="$(list_plats)"
+    for p in ${COMBINED_PLATS}; do
+        _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
+        if [ -d "${_P_INC}" ]; then
+            cp -r "${_P_INC}/"* ${COMBINED_HEADERS} || return $?
+        else
+            echo "Platform ${p} has not been built"
+            return 1
+        fi
+    done
+    for h in ${PLATFORM_SPECIFIC_HEADERS}; do
+        echo "Combining header '${h}'..."
+        if [ -f "${COMBINED_HEADERS}/${h}" ]; then
+            rm "${COMBINED_HEADERS}/${h}" || return $?
+            for p in ${COMBINED_PLATS}; do
+                _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
+                if [ -f "${_P_INC}/${h}" ]; then
+                    cat "${_P_INC}/${h}" >> "${COMBINED_HEADERS}/${h}" || return $?
+                fi
+            done
+        fi
+    done
+}
+
+do_package() {
+    [ -d "${1}" ] || {
+        print_usage "Invalid package output directory:" "    \"${1}\""
+        exit $?
+    }
+    
+    # Combine the headers (checks that everything is already built)
+    do_combine_headers || return $?
+    
+    # Build the tarball
+    BASE="openssl-$(grep '^Version:' openssl/openssl.spec | cut -d':' -f2 | sed -e 's/ *//g')"
+    cp -r "${OBJDIR_ROOT}" "${BASE}" || exit $?
+    rm -rf "${BASE}/"*"/build" || exit $?
+    find "${BASE}" -name .DS_Store -exec rm {} \; || exit $?
+    tar -zcvpf "${OUT_DIR}/${BASE}.tar.gz" "${BASE}" || exit $?
+    rm -rf "${BASE}"
 }
 
 # Calculate the path to the openssl-dist repository
@@ -274,6 +297,9 @@ TARGET="${1}"; shift
 case "${TARGET}" in
     "clean")
         do_clean $@
+        ;;
+    "package")
+        do_package $@
         ;;
     *)
         do_build ${TARGET} $@
