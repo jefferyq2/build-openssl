@@ -130,17 +130,17 @@ exit /B 0
         xcopy /S "%PATH_TO_OPENSSL_DIST%" "%BUILD_ROOT%" || exit /B %ERRORLEVEL%
         
         :: Patch the build files to include symbols in obj instead of pdb
-        perl -i -pe 's/^([\/-]^)Zi/\1Z7/g' "%BUILD_ROOT%\Configure" ^
-                                           "%BUILD_ROOT%\TABLE" ^
-                                           "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
-        perl -i -pe 's/[\/-]Fd[^^ ^"]*//g' "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
+        perl -i.bak -pe "s/^([\/-]^)Zi/\1Z7/g" "%BUILD_ROOT%\Configure" ^
+                                               "%BUILD_ROOT%\TABLE" ^
+                                               "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
+        perl -i.bak -pe "s/[\/-]Fd[^^ ^"]*//g" "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
         
         :: Patch the build file to include the debug flag
-        perl -i -pe 's/^^^(\h*^)^(\$cflags=\$dbg_cflags^)/\1\$ssl.=^"-dbg^"; \$crypto.=^"-dbg^"; \2/g' ^
-                    "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
+        perl -i.bak -pe "s/^^^(\h*^)^(\$cflags=\$dbg_cflags^)/\1\$ssl.=^"-dbg^"; \$crypto.=^"-dbg^"; \2/g" ^
+                        "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
         
         :: Patch the makefile files to only build crypto and ssl
-        perl -i -pe 's/^^DIRS=.*$/DIRS= crypto ssl/g' "%BUILD_ROOT%\Makefile.org" || exit /B %ERRORLEVEL%
+        perl -i.bak -pe "s/^^DIRS=.*$/DIRS= crypto ssl/g" "%BUILD_ROOT%\Makefile.org" || exit /B %ERRORLEVEL%
     )
 
     PUSHD "%BUILD_ROOT%" || exit /B %ERRORLEVEL%
