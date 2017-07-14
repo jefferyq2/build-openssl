@@ -65,6 +65,9 @@ print_usage() {
     echo "i.e. \"${0} clean macosx.i386\" to clean only the i386 architecture on Mac OS X"  >&2
     echo "or \"${0} clean ios\" to clean all ios builds."                                   >&2
     echo ""                                                                                 >&2
+    echo "You can copy the windows outputs to non-windows target directory by running"      >&2
+    echo "\"${0} copy-windows /path/to/windows/target"                                      >&2
+    echo ""                                                                                 >&2
     echo "You can specify to package the release (after it's already been built) by"        >&2
     echo "running \"${0} package /path/to/output"                                           >&2
     echo ""                                                                                 >&2
@@ -225,12 +228,31 @@ do_clean() {
     return 0
 }
 
+do_copy_windows() {
+    [ -d "${1}" ] || {
+        print_usage "Invalid windows target directory:" "    \"${1}\""
+        exit $?
+    }
+    for WIN_PLAT in $(ls "${1}" | grep 'objdir-windows'); do
+        [ -d "${1}/${WIN_PLAT}" -a -d "${1}/${WIN_PLAT}/lib" ] && {
+            echo "Copying ${WIN_PLAT}..."
+            rm -rf "${OBJDIR_ROOT}/${WIN_PLAT}" || exit $?
+            mkdir -p "${OBJDIR_ROOT}/${WIN_PLAT}" || exit $?
+            cp -r "${1}/${WIN_PLAT}/lib" "${OBJDIR_ROOT}/${WIN_PLAT}/lib" || exit $?
+            cp -r "${1}/${WIN_PLAT}/include" "${OBJDIR_ROOT}/${WIN_PLAT}/include" || exit $?
+        } || {
+            print_usage "Invalid build target:" "    \"${1}\""
+            exit $?
+        }
+    done
+}
+
 do_combine_headers() {
     # Combine the headers into a top-level location
     COMBINED_HEADERS="${OBJDIR_ROOT}/include"
     rm -rf "${COMBINED_HEADERS}"
     mkdir -p "${COMBINED_HEADERS}" || return $?
-    COMBINED_PLATS="$(list_plats)"
+    COMBINED_PLATS="$(list_plats) windows.i386 windows.x86_64"
     for p in ${COMBINED_PLATS}; do
         _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
         if [ -d "${_P_INC}" ]; then
@@ -297,6 +319,9 @@ TARGET="${1}"; shift
 case "${TARGET}" in
     "clean")
         do_clean $@
+        ;;
+    "copy-windows")
+        do_copy_windows $@
         ;;
     "package")
         do_package $@
