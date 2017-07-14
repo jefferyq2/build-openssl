@@ -290,7 +290,7 @@ do_package() {
     cp -r "${OBJDIR_ROOT}" "${BASE}" || exit $?
     rm -rf "${BASE}/"*"/build" || exit $?
     find "${BASE}" -name .DS_Store -exec rm {} \; || exit $?
-    tar -zcvpf "${OUT_DIR}/${BASE}.tar.gz" "${BASE}" || exit $?
+    tar -zcvpf "${1}/${BASE}.tar.gz" "${BASE}" || exit $?
     rm -rf "${BASE}"
 }
 
