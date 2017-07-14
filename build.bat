@@ -27,8 +27,25 @@ IF "%MSVC_VERSION_INT%"=="14.1" (
 )
 
 :: Options for OpenSSL
-IF "%COMMON_OPENSSL_BUILD_OPTIONS%"=="" SET COMMON_OPENSSL_BUILD_OPTIONS=no-shared enable-static-engine no-asm no-hw
-IF "%OPENSSL_BUILD_OPTIONS%"=="" SET BOOST_BUILD_OPTIONS=
+IF "%COMMON_OPENSSL_BUILD_OPTIONS%"=="" SET COMMON_OPENSSL_BUILD_OPTIONS=no-shared no-asm
+IF "%OPENSSL_BUILD_OPTIONS%"=="" SET OPENSSL_BUILD_OPTIONS=no-camellia         ^
+                                                           no-cast             ^
+                                                           no-des              ^
+                                                           no-dtls1            ^
+                                                           no-gost             ^
+                                                           no-gmp              ^
+                                                           no-idea             ^
+                                                           no-jpake            ^
+                                                           no-md2              ^
+                                                           no-mdc2             ^
+                                                           no-rc5              ^
+                                                           no-ripemd           ^
+                                                           no-rfc3779          ^
+                                                           no-rsax             ^
+                                                           no-sctp             ^
+                                                           no-seed             ^
+                                                           no-whirlpool        ^
+                                                           no-zlib
 
 :: Include files which are platform-specific
 SET PLATFORM_SPECIFIC_HEADERS=openssl^\opensslconf.h

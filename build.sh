@@ -16,9 +16,30 @@ HB_BOOTSTRAP="t:*toonetown/android b:android-ndk
 : ${CONFIGS_DIR:="${BUILD_DIR}/configs"}
 : ${MAKE_BUILD_PARALLEL:=$(sysctl -n hw.ncpu)}
 
-# Options for OpenSSL
-: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared enable-static-engine no-asm no-hw"}
-: ${OPENSSL_BUILD_OPTIONS:=""}
+# Options for OpenSSL - default ones are very secure (most stuff disabled)
+: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared"}
+: ${OPENSSL_BUILD_OPTIONS:="no-camellia         \
+                            no-capieng          \
+                            no-cast             \
+                            no-des              \
+                            no-dtls1            \
+                            no-gost             \
+                            no-gmp              \
+                            no-heartbeats       \
+                            no-idea             \
+                            no-jpake            \
+                            no-md2              \
+                            no-mdc2             \
+                            no-rc5              \
+                            no-rdrand           \
+                            no-ripemd           \
+                            no-rfc3779          \
+                            no-rsax             \
+                            no-sctp             \
+                            no-seed             \
+                            no-sha0             \
+                            no-whirlpool        \
+                            no-zlib"}
 
 # Include files which are platform-specific
 PLATFORM_SPECIFIC_HEADERS="openssl/opensslconf.h"
@@ -122,7 +143,7 @@ do_build_openssl() {
     echo "Building OpenSSL architecture '${TARGET}'..."
     
     # Generate the project and build (and clean up cruft directories)
-    make -j ${MAKE_BUILD_PARALLEL} build_apps && make install_sw
+    make -j ${MAKE_BUILD_PARALLEL} depend && make -j ${MAKE_BUILD_PARALLEL} build_apps && make install_sw
     ret=$?
     rm -rf "${OUTPUT_ROOT}"/{bin,certs,misc,private,lib/engines,lib/pkgconfig,openssl.cnf} >/dev/null 2>&1
     
