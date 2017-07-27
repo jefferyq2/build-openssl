@@ -127,7 +127,7 @@ do_build_openssl() {
         cd "${BUILD_ROOT}" || return $?
         [ -n "${OPENSSL_PRECONFIGURE}" ] && {
             [ -x "${OPENSSL_PRECONFIGURE}" ] || { echo "${OPENSSL_PRECONFIGURE} does not exist"; return 1; }
-            "${OPENSSL_PRECONFIGURE}" || return $?
+            source "${OPENSSL_PRECONFIGURE}" || return $?
         }
         ./Configure ${OPENSSL_CONFIGURE_NAME} \
                     ${COMMON_OPENSSL_BUILD_OPTIONS} \
