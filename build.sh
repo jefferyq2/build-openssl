@@ -307,7 +307,7 @@ do_package() {
     do_combine_headers || return $?
     
     # Build the tarball
-    BASE="openssl-$(grep '^Version:' openssl/openssl.spec | cut -d':' -f2 | sed -e 's/ *//g')"
+    BASE="openssl-$(grep '^Version:' "${PATH_TO_OPENSSL_DIST}/openssl.spec" | cut -d':' -f2 | sed -e 's/ *//g')"
     cp -r "${OBJDIR_ROOT}" "${BASE}" || exit $?
     rm -rf "${BASE}/"*"/build" || exit $?
     find "${BASE}" -name .DS_Store -exec rm {} \; || exit $?
