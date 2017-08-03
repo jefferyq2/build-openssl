@@ -17,7 +17,7 @@ HB_BOOTSTRAP="t:*toonetown/android b:android-ndk
 : ${MAKE_BUILD_PARALLEL:=$(sysctl -n hw.ncpu)}
 
 # Options for OpenSSL - default ones are very secure (most stuff disabled)
-: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared"}
+: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared no-asm"}
 : ${OPENSSL_BUILD_OPTIONS:="no-camellia         \
                             no-capieng          \
                             no-cast             \
