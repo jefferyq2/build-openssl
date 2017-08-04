@@ -7,7 +7,7 @@ cd ->/dev/null
 # Homebrew bootstrapping information
 : ${HB_BOOTSTRAP_GIST_URL:="https://gist.githubusercontent.com/toonetown/48101686e509fda81335/raw"}
 HB_BOOTSTRAP="t:*toonetown/android b:android-ndk 
-              b:autoconf b:automake b:libtool
+              b:autoconf b:automake b:libtool b:dos2unix
               t:toonetown/extras b:toonetown-extras s:toonetown-extras b:android-env"
 
 # Overridable build locations
@@ -296,6 +296,7 @@ do_combine_headers() {
             done
         fi
     done
+    find "${OBJDIR_ROOT}/include" -type f -exec dos2unix {} \; || return $?
 }
 
 do_package() {
