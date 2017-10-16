@@ -120,7 +120,7 @@ exit /B 0
     perl Configure %~1 ^
                    %COMMON_OPENSSL_BUILD_OPTIONS% ^
                    %OPENSSL_BUILD_OPTIONS% ^
-                   --openssldir="%~2" || exit /B %ERRORLEVEL%
+                   --openssldir="%~2" %CFLAGS% || exit /B %ERRORLEVEL%
     CALL "ms\%~3" || exit /B %ERRORLEVEL%
     nmake -f ms\nt.mak install || exit /B %ERRORLEVEL%
 @exit /B 0
