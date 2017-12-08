@@ -14,7 +14,7 @@ To build on macOS:
 
  * macOS 10.13 (High Sierra)
  
- * Xcode 9.1 (From Mac App Store)
+ * Xcode 9.2 (From Mac App Store)
      * Run Xcode and accept all first-run prompts
 
  * Build dependencies
@@ -36,7 +36,7 @@ To build for Android:
 
  * macOS requirements above
  
- * Android NDK r15c
+ * Android NDK 16.0 (installed via Android Studio)
      * You must set the environment variable `ANDROID_NDK_HOME` to point to your NDK installation
 
      
