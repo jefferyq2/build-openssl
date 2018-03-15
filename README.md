@@ -1,10 +1,10 @@
 ## OpenSSL Building ##
 
-This project provides some prebuilt OpenSSL configuration scripts for easy building on various platforms.  It contains as a submodule, the [k9webprotection/openssl][openssl-release] git project.
+This project provides some prebuilt OpenSSL configuration scripts for easy building on various platforms.  It contains as a submodule, the [toonetown/openssl][openssl-release] git project.
 
-You can check this directory out in any location on your computer, but the default location that the `build.sh` script looks for is as a parent directory to where you check out the [k9webprotection/openssl][openssl-release] git project.  By default, this project contains a submodule of the [k9webprotection/openssl][openssl-release] git project in the correct location.
+You can check this directory out in any location on your computer, but the default location that the `build.sh` script looks for is as a parent directory to where you check out the [toonetown/openssl][openssl-release] git project.  By default, this project contains a submodule of the [toonetown/openssl][openssl-release] git project in the correct location.
 
-[openssl-release]: https://github.com/k9webprotection/openssl
+[openssl-release]: https://github.com/toonetown/openssl
 
 ### Requirements ###
 
