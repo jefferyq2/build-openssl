@@ -70,6 +70,13 @@ perl -e1 2>NUL || (
     GOTO print_usage
 )
 
+:: Check for active perl to be installed
+perl -v | grep MSWin32 >NUL || (
+    echo Perl is not installed, but it is not Active Perl. 1>&2
+    echo. 1>&2
+    GOTO print_usage
+)
+
 :: Set up the target and the command-line arguments
 SET TARGET=%1
 SHIFT
