@@ -16,6 +16,9 @@ HB_BOOTSTRAP="t:*toonetown/android b:android-ndk
 : ${CONFIGS_DIR:="${BUILD_DIR}/configs"}
 : ${MAKE_BUILD_PARALLEL:=$(sysctl -n hw.ncpu)}
 
+# Packages to bundle - macosx last, so we get the right line endings
+: ${PKG_COMBINED_PLATS:="windows.i386 windows.x86_64 macosx"}
+
 # Options for OpenSSL - default ones are very secure (most stuff disabled)
 : ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared no-asm"}
 : ${OPENSSL_BUILD_OPTIONS:="no-camellia         \
@@ -273,8 +276,12 @@ do_combine_headers() {
     COMBINED_HEADERS="${OBJDIR_ROOT}/include"
     rm -rf "${COMBINED_HEADERS}"
     mkdir -p "${COMBINED_HEADERS}" || return $?
-    # list_plats last, so we get the right line endings
-    COMBINED_PLATS="windows.i386 windows.x86_64 $(list_plats)"
+
+    COMBINED_PLATS="${PKG_COMBINED_PLATS}"
+    [ -n "${COMBINED_PLATS}" ] || {
+        # list_plats last, so we get the right line endings
+        COMBINED_PLATS="windows.i386 windows.x86_64 $(list_plats)"
+    }
     for p in ${COMBINED_PLATS}; do
         _P_INC="${OBJDIR_ROOT}/objdir-${p}/include"
         if [ -d "${_P_INC}" ]; then
