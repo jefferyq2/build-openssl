@@ -20,7 +20,7 @@ HB_BOOTSTRAP="t:*toonetown/android b:android-ndk
 : ${PKG_COMBINED_PLATS:="windows.i386 windows.x86_64 macosx"}
 
 # Options for OpenSSL - default ones are very secure (most stuff disabled)
-: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared no-asm"}
+: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared"}
 : ${OPENSSL_BUILD_OPTIONS:="no-camellia         \
                             no-capieng          \
                             no-cast             \

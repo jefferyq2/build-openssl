@@ -27,7 +27,7 @@ IF "%MSVC_VERSION_INT%"=="14.1" (
 )
 
 :: Options for OpenSSL
-IF "%COMMON_OPENSSL_BUILD_OPTIONS%"=="" SET COMMON_OPENSSL_BUILD_OPTIONS=no-shared no-asm
+IF "%COMMON_OPENSSL_BUILD_OPTIONS%"=="" SET COMMON_OPENSSL_BUILD_OPTIONS=no-shared
 IF "%OPENSSL_BUILD_OPTIONS%"=="" SET OPENSSL_BUILD_OPTIONS=no-camellia         ^
                                                            no-cast             ^
                                                            no-des              ^
