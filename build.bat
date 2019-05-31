@@ -17,7 +17,17 @@ IF "%MSVC_VERSION%"=="" (
     SET BUILD_PLATFORM_NAME=windows-msvc-%MSVC_VERSION%
 )
 IF "%MSVC_VERSION_INT%"=="14.1" (
-    SET VCVAR_DIR=C:\Program Files (x86^)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build
+    SET VCVAR_ENTERPRISE_DIR=C:\Program Files (x86^)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build
+    SET VCVAR_PROFESSIONAL_DIR=C:\Program Files (x86^)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build
+    IF EXIST "!VCVAR_ENTERPRISE_DIR!" (
+        SET VCVAR_DIR=!VCVAR_ENTERPRISE_DIR!
+    ) ELSE IF EXIST "!VCVAR_PROFESSIONAL_DIR!" (
+        SET VCVAR_DIR=!VCVAR_PROFESSIONAL_DIR!
+    ) ELSE (
+        echo Uninstalled MSVC for "%MSVC_VERSION_INT%". 1>&2
+        echo. 1>&2
+        GOTO print_usage
+    )
 ) ELSE IF "%MSVC_VERSION_INT%"=="14.0" (
     SET VCVAR_DIR=C:\Program Files (x86^)\Microsoft Visual Studio 14.0\VC
 ) ELSE (
@@ -71,7 +81,7 @@ perl -e1 2>NUL || (
 )
 
 :: Check for active perl to be installed
-perl -v | grep MSWin32 >NUL || (
+perl -v | findstr -i MSWin32 >NUL || (
     echo Perl is not installed, but it is not Active Perl. 1>&2
     echo. 1>&2
     GOTO print_usage
