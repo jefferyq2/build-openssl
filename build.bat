@@ -10,13 +10,25 @@ IF "%CONFIGS_DIR%"=="" SET CONFIGS_DIR=%BUILD_DIR%\configs
 
 :: Options to control the build
 IF "%MSVC_VERSION%"=="" (
-    SET MSVC_VERSION_INT=14.1
+    SET MSVC_VERSION_INT=14.2
     SET BUILD_PLATFORM_NAME=windows
 ) ELSE (
     SET MSVC_VERSION_INT=%MSVC_VERSION%
     SET BUILD_PLATFORM_NAME=windows-msvc-%MSVC_VERSION%
 )
-IF "%MSVC_VERSION_INT%"=="14.1" (
+IF "%MSVC_VERSION_INT%"=="14.2" (
+    SET VCVAR_ENTERPRISE_DIR=C:\Program Files (x86^)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build
+    SET VCVAR_PROFESSIONAL_DIR=C:\Program Files (x86^)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build
+    IF EXIST "!VCVAR_ENTERPRISE_DIR!" (
+        SET VCVAR_DIR=!VCVAR_ENTERPRISE_DIR!
+    ) ELSE IF EXIST "!VCVAR_PROFESSIONAL_DIR!" (
+        SET VCVAR_DIR=!VCVAR_PROFESSIONAL_DIR!
+    ) ELSE (
+        echo Uninstalled MSVC for "%MSVC_VERSION_INT%". 1>&2
+        echo. 1>&2
+        GOTO print_usage
+    )
+) ELSE IF "%MSVC_VERSION_INT%"=="14.1" (
     SET VCVAR_ENTERPRISE_DIR=C:\Program Files (x86^)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build
     SET VCVAR_PROFESSIONAL_DIR=C:\Program Files (x86^)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build
     IF EXIST "!VCVAR_ENTERPRISE_DIR!" (
