@@ -1,4 +1,5 @@
 @ECHO OFF &SETLOCAL ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
+SETLOCAL
 
 SET BUILD_DIR=%~dp0
 SET SCRIPT_NAME=%~0
@@ -50,23 +51,53 @@ IF "%MSVC_VERSION_INT%"=="14.2" (
 
 :: Options for OpenSSL
 IF "%COMMON_OPENSSL_BUILD_OPTIONS%"=="" SET COMMON_OPENSSL_BUILD_OPTIONS=no-shared
-IF "%OPENSSL_BUILD_OPTIONS%"=="" SET OPENSSL_BUILD_OPTIONS=no-camellia         ^
-                                                           no-cast             ^
-                                                           no-des              ^
-                                                           no-dtls1            ^
-                                                           no-gost             ^
-                                                           no-gmp              ^
-                                                           no-idea             ^
-                                                           no-jpake            ^
-                                                           no-md2              ^
-                                                           no-mdc2             ^
-                                                           no-rc5              ^
-                                                           no-ripemd           ^
-                                                           no-rfc3779          ^
-                                                           no-rsax             ^
-                                                           no-sctp             ^
-                                                           no-seed             ^
-                                                           no-whirlpool        ^
+IF "%OPENSSL_BUILD_OPTIONS%"=="" SET OPENSSL_BUILD_OPTIONS=no-afalgeng          ^
+                                                           no-aria              ^
+                                                           no-blake2            ^
+                                                           no-camellia          ^
+                                                           no-capieng           ^
+                                                           no-cast              ^
+                                                           no-chacha            ^
+                                                           no-cmac              ^
+                                                           no-cms               ^
+                                                           no-ct                ^
+                                                           no-deprecated        ^
+                                                           no-des               ^
+                                                           no-dtls              ^
+                                                           no-dtls1-method      ^
+                                                           no-dtls1_2-method    ^
+                                                           no-engine            ^
+                                                           no-filenames         ^
+                                                           no-gost              ^
+                                                           no-heartbeats        ^
+                                                           no-hw-padlock        ^
+                                                           no-idea              ^
+                                                           no-md2               ^
+                                                           no-md4               ^
+                                                           no-mdc2              ^
+                                                           no-nextprotoneg      ^
+                                                           no-ocb               ^
+                                                           no-poly1305          ^
+                                                           no-rc2               ^
+                                                           no-rc4               ^
+                                                           no-rc5               ^
+                                                           no-rdrand            ^
+                                                           no-rfc3779           ^
+                                                           no-rmd160            ^
+                                                           no-scrypt            ^
+                                                           no-sctp              ^
+                                                           no-seed              ^
+                                                           no-siphash           ^
+                                                           no-sm2               ^
+                                                           no-sm3               ^
+                                                           no-sm4               ^
+                                                           no-srp               ^
+                                                           no-srtp              ^
+                                                           no-ssl               ^
+                                                           no-ssl3-method       ^
+                                                           no-static-engine     ^
+                                                           no-tests             ^
+                                                           no-whirlpool         ^
                                                            no-zlib
 
 :: Include files which are platform-specific
@@ -95,6 +126,13 @@ perl -e1 2>NUL || (
 :: Check for active perl to be installed
 perl -v | findstr -i MSWin32 >NUL || (
     echo Perl is not installed, but it is not Active Perl. 1>&2
+    echo. 1>&2
+    GOTO print_usage
+)
+
+:: Check for NASM to be installed
+nasm -h >NUL 2>NUL || (
+    echo NASM is not installed, but is required. 1>&2
     echo. 1>&2
     GOTO print_usage
 )
@@ -146,12 +184,12 @@ exit /B 0
 @exit /B 0
 
 :do_make_openssl
-    perl Configure %~1 ^
-                   %COMMON_OPENSSL_BUILD_OPTIONS% ^
-                   %OPENSSL_BUILD_OPTIONS% ^
-                   --openssldir="%~2" %CFLAGS% || exit /B %ERRORLEVEL%
-    CALL "ms\%~3" || exit /B %ERRORLEVEL%
-    nmake -f ms\nt.mak install || exit /B %ERRORLEVEL%
+    perl "%PATH_TO_OPENSSL_DIST%\Configure" %~1 %~3 ^
+                                            %COMMON_OPENSSL_BUILD_OPTIONS% ^
+                                            %OPENSSL_BUILD_OPTIONS% ^
+                                            --prefix="%~2" ^
+                                            --openssldir="%~2" || exit /B %ERRORLEVEL%
+    nmake install_sw || exit /B %ERRORLEVEL%
 @exit /B 0
 
 :do_build_openssl
@@ -166,37 +204,20 @@ exit /B 0
     IF "%OPENSSL_CONFIGURE_NAME%"=="" (
         echo OPENSSL_CONFIGURE_NAME is not set for %TARGET% & exit /B 1
     )
-    IF "%OPENSSL_SETUP_NAME%"=="" (
-        echo OPENSSL_SETUP_NAME is not set for %TARGET% & exit /B 1
-    )
     
-    IF NOT EXIST "%BUILD_ROOT%\Configure" (
+    IF NOT EXIST "%BUILD_ROOT%" (
         echo Creating build directory for %TARGET%...
         mkdir "%BUILD_ROOT%" || exit /B %ERRORLEVEL%
-        xcopy /S "%PATH_TO_OPENSSL_DIST%" "%BUILD_ROOT%" || exit /B %ERRORLEVEL%
-        
-        :: Patch the build files to include symbols in obj instead of pdb
-        perl -i.bak -pe "s/([\/-])Zi/\1Z7/g" "%BUILD_ROOT%\Configure" ^
-                                             "%BUILD_ROOT%\TABLE" ^
-                                             "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
-        perl -i.bak -pe "s/[\/-]Fd[^ \042]*//g" "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
-        
-        :: Patch the build file to include the debug flag
-        perl -i.bak -pe "s/^(\h*)(\$cflags=\$dbg_cflags)/\1\$ssl.='-dbg'; \$crypto.='-dbg'; \2/g" ^
-                        "%BUILD_ROOT%\util\pl\VC-32.pl" || exit /B %ERRORLEVEL%
-        
-        :: Patch the makefile files to only build crypto and ssl
-        perl -i.bak -pe "s/^DIRS=.*$/DIRS= crypto ssl/g" "%BUILD_ROOT%\Makefile.org" || exit /B %ERRORLEVEL%
     )
 
     PUSHD "%BUILD_ROOT%" || exit /B %ERRORLEVEL%
     echo Building architecture "%~1"...
-    CALL :do_make_openssl "%OPENSSL_CONFIGURE_NAME%" "%OUTPUT_ROOT%" "%OPENSSL_SETUP_NAME%" || (
+    CALL :do_make_openssl "%OPENSSL_CONFIGURE_NAME%" "%OUTPUT_ROOT%" --release || (
         POPD & exit /B 1
     )
     
     echo Building debug architecture "%~1"...
-    CALL :do_make_openssl debug-"%OPENSSL_CONFIGURE_NAME%" "%OUTPUT_ROOT%" "%OPENSSL_SETUP_NAME%" || (
+    CALL :do_make_openssl "%OPENSSL_CONFIGURE_NAME%" "%OUTPUT_ROOT%" --debug || (
         POPD & exit /B 1
     )
     
@@ -213,7 +234,7 @@ exit /B 0
     
     :: Delete cruft files
     rmdir /Q /S "%OUTPUT_ROOT%\bin" 2>NUL
-    del "%OUTPUT_ROOT%\openssl.cnf"
+    rmdir /Q /S "%OUTPUT_ROOT%\lib\engines-1_1" 2>NUL
     
     POPD & echo Done!    
 @exit /B 0

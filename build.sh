@@ -21,26 +21,52 @@ HB_BOOTSTRAP="t:*toonetown/android b:android-ndk
 
 # Options for OpenSSL - default ones are very secure (most stuff disabled)
 : ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared"}
-: ${OPENSSL_BUILD_OPTIONS:="no-camellia         \
+: ${OPENSSL_BUILD_OPTIONS:="no-afalgeng         \
+                            no-aria             \
+                            no-blake2           \
+                            no-camellia         \
                             no-capieng          \
                             no-cast             \
+                            no-chacha           \
+                            no-cmac             \
+                            no-cms              \
+                            no-ct               \
+                            no-deprecated       \
                             no-des              \
-                            no-dtls1            \
+                            no-dtls             \
+                            no-dtls1-method     \
+                            no-dtls1_2-method   \
+                            no-engine           \
+                            no-filenames        \
                             no-gost             \
-                            no-gmp              \
                             no-heartbeats       \
+                            no-hw-padlock       \
                             no-idea             \
-                            no-jpake            \
                             no-md2              \
+                            no-md4              \
                             no-mdc2             \
+                            no-nextprotoneg     \
+                            no-ocb              \
+                            no-poly1305         \
+                            no-rc2              \
+                            no-rc4              \
                             no-rc5              \
                             no-rdrand           \
-                            no-ripemd           \
                             no-rfc3779          \
-                            no-rsax             \
+                            no-rmd160           \
+                            no-scrypt           \
                             no-sctp             \
                             no-seed             \
-                            no-sha0             \
+                            no-siphash          \
+                            no-sm2              \
+                            no-sm3              \
+                            no-sm4              \
+                            no-srp              \
+                            no-srtp             \
+                            no-ssl              \
+                            no-ssl3-method      \
+                            no-static-engine    \
+                            no-tests            \
                             no-whirlpool        \
                             no-zlib"}
 
@@ -116,26 +142,23 @@ do_build_openssl() {
         return 1
     }
 
-    [ -d "${BUILD_ROOT}" -a -f "${BUILD_ROOT}/Configure" ] || {
+    [ -d "${BUILD_ROOT}" ] || {
         echo "Creating build directory for '${TARGET}'..."
-        mkdir -p "$(dirname "${BUILD_ROOT}")" || return $?
-        cp -r "${PATH_TO_OPENSSL_DIST}" "${BUILD_ROOT}" || return $?
-        
-        # Patch the makefile to only build crypto and ssl
-        perl -i -pe 's/^DIRS=.*$/DIRS= crypto ssl/g' "${BUILD_ROOT}/Makefile.org" || return $?
+        mkdir -p "${BUILD_ROOT}" || return $?
     }
     
-    if [ "${BUILD_ROOT}/Makefile" -ot "${BUILD_ROOT}/Makefile.org" ]; then
+    if [ ! -f "${BUILD_ROOT}/Makefile" ]; then
         echo "Configuring OpenSSL build directory for '${TARGET}'..."
         cd "${BUILD_ROOT}" || return $?
         [ -n "${OPENSSL_PRECONFIGURE}" ] && {
             [ -x "${OPENSSL_PRECONFIGURE}" ] || { echo "${OPENSSL_PRECONFIGURE} does not exist"; return 1; }
             source "${OPENSSL_PRECONFIGURE}" || return $?
         }
-        ./Configure ${OPENSSL_CONFIGURE_NAME} \
-                    ${COMMON_OPENSSL_BUILD_OPTIONS} \
-                    ${OPENSSL_BUILD_OPTIONS} \
-                    --openssldir="${OUTPUT_ROOT}" || {
+        "${PATH_TO_OPENSSL_DIST}/Configure" ${OPENSSL_CONFIGURE_NAME} \
+                                            ${COMMON_OPENSSL_BUILD_OPTIONS} \
+                                            ${OPENSSL_BUILD_OPTIONS} \
+                                            --prefix="${OUTPUT_ROOT}" \
+                                            --openssldir="${OUTPUT_ROOT}" || {
             rm -f "${BUILD_ROOT}/Makefile"
             return 1
         }
@@ -146,9 +169,9 @@ do_build_openssl() {
     echo "Building OpenSSL architecture '${TARGET}'..."
     
     # Generate the project and build (and clean up cruft directories)
-    make -j ${MAKE_BUILD_PARALLEL} depend && make -j ${MAKE_BUILD_PARALLEL} build_apps && make install_sw
+    make -j ${MAKE_BUILD_PARALLEL} && make install_sw
     ret=$?
-    rm -rf "${OUTPUT_ROOT}"/{bin,certs,misc,private,lib/engines,lib/pkgconfig,openssl.cnf} >/dev/null 2>&1
+    rm -rf "${OUTPUT_ROOT}"/{bin,certs,misc,private,lib/engines*,lib/pkgconfig,openssl.cnf} >/dev/null 2>&1
     
     # Update platform-specific headers
     if [ ${ret} -eq 0 ]; then
@@ -316,7 +339,8 @@ do_package() {
     do_combine_headers || return $?
     
     # Build the tarball
-    BASE="openssl-$(grep '^Version:' "${PATH_TO_OPENSSL_DIST}/openssl.spec" | cut -d':' -f2 | sed -e 's/ *//g')"
+    BASE="openssl-$(grep "OPENSSL_VERSION_TEXT" "${PATH_TO_OPENSSL_DIST}/include/openssl/opensslv.h" | \
+                    cut -d'"' -f2- | cut -d' ' -f2)"
     cp -r "${OBJDIR_ROOT}" "${BASE}" || exit $?
     rm -rf "${BASE}/"*"/build" "${BASE}/logs" || exit $?
     rm -rf "${BASE}/objdir-macosx.x86_64" || return $?
