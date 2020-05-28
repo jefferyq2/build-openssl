@@ -19,7 +19,7 @@ HB_BOOTSTRAP="b:autoconf b:automake b:libtool b:dos2unix
 : ${PKG_COMBINED_PLATS:="windows.x86_64 macosx"}
 
 # Options for OpenSSL - default ones are very secure (most stuff disabled)
-: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared"}
+: ${COMMON_OPENSSL_BUILD_OPTIONS:="no-shared no-pinshared"}
 : ${OPENSSL_BUILD_OPTIONS:="no-afalgeng         \
                             no-aria             \
                             no-blake2           \

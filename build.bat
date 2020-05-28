@@ -50,7 +50,7 @@ IF "%MSVC_VERSION_INT%"=="14.2" (
 )
 
 :: Options for OpenSSL
-IF "%COMMON_OPENSSL_BUILD_OPTIONS%"=="" SET COMMON_OPENSSL_BUILD_OPTIONS=no-shared
+IF "%COMMON_OPENSSL_BUILD_OPTIONS%"=="" SET COMMON_OPENSSL_BUILD_OPTIONS=no-shared no-pinshared
 IF "%OPENSSL_BUILD_OPTIONS%"=="" SET OPENSSL_BUILD_OPTIONS=no-afalgeng          ^
                                                            no-aria              ^
                                                            no-blake2            ^
